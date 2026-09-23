@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `solicitudbeneficiario` ADD COLUMN `tipoApoyo` ENUM('ALIMENTOS', 'SALUD', 'EDUCACION', 'VIVIENDA', 'EMPLEO', 'OTRO') NOT NULL DEFAULT 'OTRO';

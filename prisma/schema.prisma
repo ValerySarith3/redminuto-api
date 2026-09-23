@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Rol {
+  DONANTE
+  VOLUNTARIO
+  BENEFICIARIO
+  ADMIN
+}
+
+enum EstadoInscripcion {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  EN_REVISION
+  APROBADA
+  RECHAZADA
+}
+
+enum TipoApoyo {
+  ALIMENTOS
+  SALUD
+  EDUCACION
+  VIVIENDA
+  EMPLEO
+  OTRO
+}
+
+enum TipoDocumento {
+  CC
+  TI
+  CE
+  PPT
+  RC
+  OTRO
+}
+
+enum CanalDonacion {
+  PASARELA
+  TRANSFERENCIA
+  EFECTIVO
+  LLAVE
+}
+
+enum EstadoDonacion {
+  PENDIENTE
+  COMPLETADA
+  FALLIDA
+}
+
+model Usuario {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  email       String   @unique
+  passwordHash String
+  rol         Rol
+  creadoEn    DateTime @default(now())
+
+  donaciones     Donacion[]
+  inscripciones  InscripcionVoluntario[]
+  solicitudes    SolicitudBeneficiario[]
+}
+
+model Programa {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String   @db.Text
+  metaCupoVoluntarios Int @default(0)
+  creadoEn    DateTime @default(now())
+
+  campanas    Campana[]
+  inscripciones InscripcionVoluntario[]
+  solicitudes SolicitudBeneficiario[]
+}
+
+model Campana {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descripcion String   @db.Text
+  metaMonto   Decimal  @db.Decimal(12, 2)
+  programaId  Int
+  programa    Programa @relation(fields: [programaId], references: [id])
+  creadoEn    DateTime @default(now())
+
+  donaciones  Donacion[]
+}
+
+model Donacion {
+  id         Int            @id @default(autoincrement())
+  monto      Decimal        @db.Decimal(12, 2)
+  canal      CanalDonacion
+  estado     EstadoDonacion @default(PENDIENTE)
+  campanaId  Int
+  campana    Campana        @relation(fields: [campanaId], references: [id])
+  donanteId  Int?
+  donante    Usuario?       @relation(fields: [donanteId], references: [id])
+  creadoEn   DateTime       @default(now())
+}
+
+model InscripcionVoluntario {
+  id          Int               @id @default(autoincrement())
+  estado      EstadoInscripcion @default(PENDIENTE)
+  voluntarioId Int
+  voluntario  Usuario           @relation(fields: [voluntarioId], references: [id], onDelete: Cascade)
+  programaId  Int
+  programa    Programa          @relation(fields: [programaId], references: [id])
+  creadoEn    DateTime          @default(now())
+}
+
+model SolicitudBeneficiario {
+  id            Int             @id @default(autoincrement())
+  nombreCompleto String
+  tipoDocumento  TipoDocumento
+  numeroDocumento String
+  telefono       String
+  direccion      String
+  ciudad         String
+  personasACargo Int            @default(1)
+  aceptaTratamientoDatos Boolean @default(false)
+  descripcion   String          @db.Text
+  tipoApoyo     TipoApoyo       @default(OTRO)
+  estado        EstadoSolicitud @default(PENDIENTE)
+  beneficiarioId Int
+  beneficiario  Usuario         @relation(fields: [beneficiarioId], references: [id], onDelete: Cascade)
+  programaId    Int
+  programa      Programa        @relation(fields: [programaId], references: [id])
+  creadoEn      DateTime        @default(now())
+}
