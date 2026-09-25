@@ -6,7 +6,7 @@ Construido con Express 5, Prisma 7 y MySQL/MariaDB. El frontend correspondiente 
 
 ## Usuario administrador
 
-El rol `ADMIN` no se puede crear por autorregistro pública (solo `DONANTE`, `VOLUNTARIO` y `BENEFICIARIO` pueden registrarse desde la web). La cuenta administradora se crea con el script de seed:
+Quien se registra desde la web siempre queda con rol `USUARIO`; el rol `ADMIN` no se puede obtener por autorregistro. La cuenta administradora se crea con el script de seed:
 
 ```
 npm run seed:admin
@@ -65,6 +65,12 @@ Si más adelante usas un MySQL distinto a XAMPP (otra instalación, un servidor 
 
 La API queda disponible en `http://localhost:4000/api` (o el puerto que definas en `PORT`).
 
+> **Ojo con `DATABASE_URL`:** la API usa el adaptador de MariaDB y funciona con `mariadb://...`, pero los comandos de Prisma (`migrate`, `studio`) solo aceptan `mysql://...`. Si `npx prisma migrate ...` falla con `P1013 ... scheme is not recognized`, córrelo así (en Git Bash):
+> ```
+> DATABASE_URL="mysql://root@localhost:3306/redminuto" npx prisma migrate deploy
+> ```
+> Alternativa sin Prisma: importar `BD/redminuto_base_de_datos.sql` en phpMyAdmin.
+
 > Si al correr `npm run dev` o `npx prisma migrate dev` ves un error como `Can't connect to MySQL server` o `ECONNREFUSED`, casi siempre significa que el módulo MySQL de XAMPP no está iniciado — vuelve al Panel de Control de XAMPP y dale Start.
 
 ## Scripts
@@ -83,14 +89,12 @@ Comandos útiles de Prisma:
 
 ## Roles y permisos
 
-| Rol            | Puede...                                                                 |
-|-----------------|---------------------------------------------------------------------------|
-| `DONANTE`       | Donar a campañas, ver su historial y seguimiento personal                 |
-| `VOLUNTARIO`    | Inscribirse a programas (según cupo disponible), ver su historial         |
-| `BENEFICIARIO`  | Registrar y consultar solicitudes de ayuda                                |
-| `ADMIN`         | Todo lo anterior, más: gestionar programas y campañas, revisar y cambiar el estado de inscripciones y solicitudes, y gestionar usuarios (crear, cambiar rol, eliminar) |
+Solo hay dos roles. Los perfiles de donante, voluntario y beneficiario **no son roles de cuenta**: con la misma cuenta una persona puede donar, inscribirse como voluntaria y pedir ayuda. El tablero del admin calcula cuántas personas participan de cada forma a partir de su actividad.
 
-Un administrador no puede eliminar su propia cuenta ni quitarse a sí mismo el rol de `ADMIN` (para evitar quedarse sin acceso administrativo).
+| Rol       | Puede...                                                                 |
+|-----------|---------------------------------------------------------------------------|
+| `USUARIO` | Donar a campañas, inscribirse a jornadas de voluntariado (según cupo), registrar solicitudes de ayuda y ver todo su seguimiento personal |
+| `ADMIN`   | Lo anterior, más: tablero y reportes, confirmar pagos, gestionar programas, campañas y actividades, revisar inscripciones y solicitudes, y gestionar usuarios |
 
 ## Estructura de la API
 
@@ -104,7 +108,24 @@ Todas las rutas cuelgan de `/api`:
 | `/donaciones`      | Crear (autenticado), ver las propias (`/mias`); **admin**: listar todas    |
 | `/voluntariado`    | Inscribirse (valida cupo), ver las propias (`/mias`); **admin**: listar todas y cambiar estado |
 | `/beneficiarios`   | Registrar solicitud, ver las propias (`/mias`); **admin**: listar todas y cambiar estado |
-| `/dashboard`       | Avance por campaña/programa, y `/mio` con el seguimiento personal del usuario autenticado |
+| `/dashboard`       | Avance por campaña/programa, y `/mio` con el seguimiento personal (incluye el historial de estados) |
+| `/actividades`     | Listar jornadas de voluntariado (público); **admin**: crear, editar, eliminar |
+| `/reportes`        | **Solo admin**: `/resumen` (tablero con indicadores) y `/exportar/donaciones`, `/exportar/inscripciones` y `/exportar/solicitudes` (CSV para Excel). Aceptan `?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` |
+
+## Modelo de datos (10 tablas)
+
+| Tabla | Para qué sirve |
+|-------|----------------|
+| `Usuario` | Cuentas con su rol (donante, voluntario, beneficiario, admin) |
+| `Programa` | Programas de la sede (ej. comedores comunitarios) con su meta de voluntarios |
+| `Campana` | Campañas de recaudo de cada programa, con meta en dinero |
+| `Actividad` | Jornadas de voluntariado de un programa: fecha, horario, lugar y cupo propio |
+| `Donacion` | Aportes de los donantes a una campaña |
+| `Pago` | Transacción de cada donación con la pasarela (sandbox). Su `referencia` única evita donaciones duplicadas por doble clic o reintentos |
+| `InscripcionVoluntario` | Inscripción de un voluntario a una actividad (o al programa en general) |
+| `SolicitudBeneficiario` | Solicitudes formales de ayuda |
+| `HistorialEstado` | Bitácora de trazabilidad: cada creación o cambio de estado de una donación, inscripción o solicitud, con fecha, usuario y nota |
+| `ConsentimientoDatos` | Prueba de la autorización de tratamiento de datos (Ley 1581 de 2012): quién, cuándo, para qué y qué versión de la política |
 
 ## Notas de seguridad
 

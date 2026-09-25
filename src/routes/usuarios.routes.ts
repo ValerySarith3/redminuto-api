@@ -3,11 +3,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { firmarToken, requireAuth, requireRole } from "../middleware/auth";
 import type { Rol } from "../generated/prisma/client";
+import { VERSION_POLITICA_DATOS } from "../lib/consentimiento";
 
 export const usuariosRouter = Router();
 
-const ROLES_AUTORREGISTRO = ["DONANTE", "VOLUNTARIO", "BENEFICIARIO"];
-const ROLES_VALIDOS: Rol[] = ["DONANTE", "VOLUNTARIO", "BENEFICIARIO", "ADMIN"];
+const ROLES_VALIDOS: Rol[] = ["USUARIO", "ADMIN"];
 
 // Uso administrativo: lista todos los usuarios con su rol y actividad.
 usuariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
@@ -72,14 +72,15 @@ usuariosRouter.delete("/:id", requireAuth, requireRole("ADMIN"), async (req, res
   res.status(204).send();
 });
 
-// El rol ADMIN no se asigna por autorregistro; se crea internamente por el personal de Casa Minuto de Dios.
+// Autorregistro: siempre rol USUARIO (con la misma cuenta se dona, se hace voluntariado y se pide ayuda).
+// El rol ADMIN solo lo asigna otro administrador.
 usuariosRouter.post("/registro", async (req, res) => {
-  const { nombre, email, password, rol } = req.body;
-  if (!nombre || !email || !password || !rol) {
+  const { nombre, email, password, aceptaTratamientoDatos } = req.body;
+  if (!nombre || !email || !password) {
     return res.status(400).json({ error: "Faltan campos obligatorios" });
   }
-  if (!ROLES_AUTORREGISTRO.includes(rol)) {
-    return res.status(400).json({ error: "Rol inválido" });
+  if (!aceptaTratamientoDatos) {
+    return res.status(400).json({ error: "Debes aceptar la política de tratamiento de datos para registrarte" });
   }
 
   const existente = await prisma.usuario.findUnique({ where: { email } });
@@ -87,7 +88,13 @@ usuariosRouter.post("/registro", async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const usuario = await prisma.usuario.create({
-    data: { nombre, email, passwordHash, rol },
+    data: {
+      nombre,
+      email,
+      passwordHash,
+      rol: "USUARIO",
+      consentimientos: { create: { finalidad: "REGISTRO", versionPolitica: VERSION_POLITICA_DATOS } },
+    },
   });
 
   const token = firmarToken({ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre });

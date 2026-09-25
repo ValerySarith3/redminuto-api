@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { numeroComprobante } from "../lib/comprobante";
+import { historialDe } from "../lib/historial";
 
 export const dashboardRouter = Router();
 
@@ -73,7 +74,7 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
     }),
     prisma.inscripcionVoluntario.findMany({
       where: { voluntarioId: userId },
-      include: { programa: true },
+      include: { programa: true, actividad: true },
       orderBy: { creadoEn: "desc" },
     }),
     prisma.solicitudBeneficiario.findMany({
@@ -89,6 +90,23 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
   const avancesCampanas = await Promise.all(campanaIds.map(avanceCampana));
   const avancesProgramas = await Promise.all(programaIdsVoluntario.map(avanceProgramaVoluntarios));
 
+  const [histDonaciones, histInscripciones, histSolicitudes] = await Promise.all([
+    historialDe("DONACION", donaciones.map((d) => d.id)),
+    historialDe("INSCRIPCION", inscripciones.map((i) => i.id)),
+    historialDe("SOLICITUD", solicitudes.map((s) => s.id)),
+  ]);
+  type Hist = (typeof histDonaciones)[number];
+  const lineaDeTiempo = (lista: Hist[], id: number) =>
+    lista
+      .filter((h) => h.entidadId === id)
+      .map((h) => ({
+        estadoAnterior: h.estadoAnterior,
+        estadoNuevo: h.estadoNuevo,
+        nota: h.nota,
+        creadoEn: h.creadoEn,
+        porAdmin: h.usuario?.rol === "ADMIN",
+      }));
+
   const donacionesConAvance = donaciones.map((d) => ({
     id: d.id,
     numeroComprobante: numeroComprobante(d.id),
@@ -101,6 +119,7 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
       titulo: d.campana.titulo,
       avance: avancesCampanas.find((a) => a?.campanaId === d.campanaId) ?? null,
     },
+    historial: lineaDeTiempo(histDonaciones, d.id),
   }));
 
   const inscripcionesConAvance = inscripciones.map((i) => ({
@@ -112,6 +131,17 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
       nombre: i.programa.nombre,
       avance: avancesProgramas.find((a) => a?.programaId === i.programaId) ?? null,
     },
+    actividad: i.actividad
+      ? {
+          id: i.actividad.id,
+          titulo: i.actividad.titulo,
+          fecha: i.actividad.fecha,
+          horaInicio: i.actividad.horaInicio,
+          horaFin: i.actividad.horaFin,
+          lugar: i.actividad.lugar,
+        }
+      : null,
+    historial: lineaDeTiempo(histInscripciones, i.id),
   }));
 
   const solicitudesConPrograma = solicitudes.map((s) => ({
@@ -121,6 +151,7 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
     estado: s.estado,
     creadoEn: s.creadoEn,
     programa: { id: s.programa.id, nombre: s.programa.nombre },
+    historial: lineaDeTiempo(histSolicitudes, s.id),
   }));
 
   res.json({

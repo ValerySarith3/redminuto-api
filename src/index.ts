@@ -9,6 +9,8 @@ import { donacionesRouter } from "./routes/donaciones.routes";
 import { voluntariadoRouter } from "./routes/voluntariado.routes";
 import { beneficiariosRouter } from "./routes/beneficiarios.routes";
 import { dashboardRouter } from "./routes/dashboard.routes";
+import { actividadesRouter } from "./routes/actividades.routes";
+import { reportesRouter } from "./routes/reportes.routes";
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.use("/api/donaciones", donacionesRouter);
 app.use("/api/voluntariado", voluntariadoRouter);
 app.use("/api/beneficiarios", beneficiariosRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/actividades", actividadesRouter);
+app.use("/api/reportes", reportesRouter);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {

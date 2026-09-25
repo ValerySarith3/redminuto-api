@@ -7,10 +7,9 @@ datasource db {
   provider = "mysql"
 }
 
+// Una sola cuenta sirve para donar, ser voluntario y pedir ayuda; solo el personal de la sede es ADMIN.
 enum Rol {
-  DONANTE
-  VOLUNTARIO
-  BENEFICIARIO
+  USUARIO
   ADMIN
 }
 
@@ -58,6 +57,23 @@ enum EstadoDonacion {
   FALLIDA
 }
 
+enum EstadoPago {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum EntidadHistorial {
+  DONACION
+  INSCRIPCION
+  SOLICITUD
+}
+
+enum FinalidadConsentimiento {
+  REGISTRO
+  SOLICITUD_AYUDA
+}
+
 model Usuario {
   id          Int      @id @default(autoincrement())
   nombre      String
@@ -69,6 +85,8 @@ model Usuario {
   donaciones     Donacion[]
   inscripciones  InscripcionVoluntario[]
   solicitudes    SolicitudBeneficiario[]
+  cambiosEstado  HistorialEstado[]
+  consentimientos ConsentimientoDatos[]
 }
 
 model Programa {
@@ -79,8 +97,26 @@ model Programa {
   creadoEn    DateTime @default(now())
 
   campanas    Campana[]
+  actividades Actividad[]
   inscripciones InscripcionVoluntario[]
   solicitudes SolicitudBeneficiario[]
+}
+
+// Jornada concreta de voluntariado dentro de un programa (fecha, horario, lugar y cupo propio).
+model Actividad {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descripcion String   @db.Text
+  fecha       DateTime @db.Date
+  horaInicio  String
+  horaFin     String
+  lugar       String
+  cupo        Int
+  programaId  Int
+  programa    Programa @relation(fields: [programaId], references: [id])
+  creadoEn    DateTime @default(now())
+
+  inscripciones InscripcionVoluntario[]
 }
 
 model Campana {
@@ -105,6 +141,20 @@ model Donacion {
   donanteId  Int?
   donante    Usuario?       @relation(fields: [donanteId], references: [id])
   creadoEn   DateTime       @default(now())
+
+  pago       Pago?
+}
+
+// Transacción con la pasarela (sandbox). La referencia única evita registrar dos veces el mismo pago.
+model Pago {
+  id                Int           @id @default(autoincrement())
+  referencia        String        @unique
+  metodo            CanalDonacion
+  estado            EstadoPago
+  respuestaPasarela String?       @db.Text
+  donacionId        Int           @unique
+  donacion          Donacion      @relation(fields: [donacionId], references: [id], onDelete: Cascade)
+  creadoEn          DateTime      @default(now())
 }
 
 model InscripcionVoluntario {
@@ -114,7 +164,11 @@ model InscripcionVoluntario {
   voluntario  Usuario           @relation(fields: [voluntarioId], references: [id], onDelete: Cascade)
   programaId  Int
   programa    Programa          @relation(fields: [programaId], references: [id])
+  actividadId Int?
+  actividad   Actividad?        @relation(fields: [actividadId], references: [id])
   creadoEn    DateTime          @default(now())
+
+  @@unique([voluntarioId, actividadId])
 }
 
 model SolicitudBeneficiario {
@@ -135,4 +189,29 @@ model SolicitudBeneficiario {
   programaId    Int
   programa      Programa        @relation(fields: [programaId], references: [id])
   creadoEn      DateTime        @default(now())
+}
+
+// Bitácora de trazabilidad: cada creación o cambio de estado de una donación, inscripción o solicitud.
+model HistorialEstado {
+  id             Int              @id @default(autoincrement())
+  entidad        EntidadHistorial
+  entidadId      Int
+  estadoAnterior String?
+  estadoNuevo    String
+  nota           String?
+  usuarioId      Int?
+  usuario        Usuario?         @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  creadoEn       DateTime         @default(now())
+
+  @@index([entidad, entidadId])
+}
+
+// Autorización de tratamiento de datos personales (Ley 1581 de 2012).
+model ConsentimientoDatos {
+  id              Int                     @id @default(autoincrement())
+  finalidad       FinalidadConsentimiento
+  versionPolitica String
+  usuarioId       Int
+  usuario         Usuario                 @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  aceptadoEn      DateTime                @default(now())
 }

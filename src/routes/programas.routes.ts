@@ -43,7 +43,7 @@ programasRouter.delete("/:id", requireAuth, requireRole("ADMIN"), async (req, re
     manejarErrorEliminar(
       e,
       res,
-      "No se puede eliminar: el programa tiene campañas, inscripciones o solicitudes asociadas.",
+      "No se puede eliminar: el programa tiene campañas, actividades, inscripciones o solicitudes asociadas.",
     );
   }
 });

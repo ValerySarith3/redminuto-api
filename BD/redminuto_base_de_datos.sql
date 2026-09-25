@@ -41,8 +41,41 @@ CREATE TABLE `_prisma_migrations` (
 
 LOCK TABLES `_prisma_migrations` WRITE;
 /*!40000 ALTER TABLE `_prisma_migrations` DISABLE KEYS */;
-INSERT INTO `_prisma_migrations` VALUES ('1a1ec9e1-4563-493b-9bbe-d1c0f5eeef9a','50b40f27a753a67f5c04a4ae171f0c11c818150a6f387f856b613a9502a37add','2026-09-23 18:33:44.471','20260923183344_add_datos_solicitud_beneficiario',NULL,NULL,'2026-09-23 18:33:44.403',1),('42452d37-592b-4f48-b730-b584265b37e4','54812232093459bb7c70ef125f9d5c5ea06cdaf16fa2263990ec984f15c5db5a','2026-09-23 19:12:34.992','20260923191234_cascade_borrado_usuario',NULL,NULL,'2026-09-23 19:12:34.872',1),('7c894707-d5e6-4481-8a18-be38272a419f','9791addc0c44b18e5e1aef67cc93ca2c3f0740f5a71e539ce2f9567f1a5b1569','2026-09-23 17:39:56.707','20260913000827_init',NULL,NULL,'2026-09-23 17:39:56.342',1),('bf08246b-5bd3-4ecd-88a5-7f1392d8bb71','5c6a74eb6bdb62e56ce7f47ae3318ddb1a71bfef0dad023a227c3f9ced16c315','2026-09-23 17:39:57.438','20260923173957_add_tipo_apoyo',NULL,NULL,'2026-09-23 17:39:57.427',1);
+INSERT INTO `_prisma_migrations` VALUES ('6e163219-41e1-4a40-a367-6af1c06e39b7','de8485a0eb44ebf6fbf8ba37481a866660272e9626806db468bd77abbcaa20c8','2026-09-25 13:05:28.225','20260923173957_add_tipo_apoyo',NULL,NULL,'2026-09-25 13:05:28.214',1),('899d2a79-8e44-4699-be45-38cff2b95286','9791addc0c44b18e5e1aef67cc93ca2c3f0740f5a71e539ce2f9567f1a5b1569','2026-09-13 00:08:27.536','20260913000827_init',NULL,NULL,'2026-09-13 00:08:27.219',1),('8e7a1074-27ad-4f4c-a824-53774d47da60','9062c0a22f77e5ed2485f67e714f5a3579a4296d2a1bf14a455cf6d3716f3e7c','2026-09-25 13:05:28.237','20260923183344_add_datos_solicitud_beneficiario',NULL,NULL,'2026-09-25 13:05:28.226',1),('b011f0f9-4dfa-4685-ad07-0be747ec0c7a','ed92cc404a945b9678b0d9fd2d3ebf4964ea5e13737398942e5f8871b1064cff','2026-09-25 13:43:23.787','20260925180000_rol_usuario_unico',NULL,NULL,'2026-09-25 13:43:23.715',1),('d4afe603-bfc9-4eb2-bb49-58aad6d254f3','4fd23e5cc262d4591e76dbfed7af4d74dc1ab31e4f4e0ed1a011a2d188367776','2026-09-25 13:05:28.336','20260923191234_cascade_borrado_usuario',NULL,NULL,'2026-09-25 13:05:28.239',1),('fa686a3d-e16d-4af3-ba89-bda9c8c66750','041312646b7d994fd76797ff03576ab023eb64e9930f00cf90ed29fd8057b27a','2026-09-25 13:06:49.117','20260925130000_trazabilidad_actividades_pagos_consentimiento',NULL,NULL,'2026-09-25 13:06:48.757',1);
 /*!40000 ALTER TABLE `_prisma_migrations` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `actividad`
+--
+
+DROP TABLE IF EXISTS `actividad`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `actividad` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `titulo` varchar(191) NOT NULL,
+  `descripcion` text NOT NULL,
+  `fecha` date NOT NULL,
+  `horaInicio` varchar(191) NOT NULL,
+  `horaFin` varchar(191) NOT NULL,
+  `lugar` varchar(191) NOT NULL,
+  `cupo` int(11) NOT NULL,
+  `programaId` int(11) NOT NULL,
+  `creadoEn` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  PRIMARY KEY (`id`),
+  KEY `Actividad_programaId_fkey` (`programaId`),
+  CONSTRAINT `Actividad_programaId_fkey` FOREIGN KEY (`programaId`) REFERENCES `programa` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `actividad`
+--
+
+LOCK TABLES `actividad` WRITE;
+/*!40000 ALTER TABLE `actividad` DISABLE KEYS */;
+/*!40000 ALTER TABLE `actividad` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -71,8 +104,36 @@ CREATE TABLE `campana` (
 
 LOCK TABLES `campana` WRITE;
 /*!40000 ALTER TABLE `campana` DISABLE KEYS */;
-INSERT INTO `campana` VALUES (2,'ayudas a familias','ayudanos',39001.00,4,'2026-09-23 19:35:21.524');
+INSERT INTO `campana` VALUES (1,'Mercados de fin de año','Mercados navideños para 100 familias.',8000000.00,3,'2026-09-13 00:26:06.284'),(2,'Útiles escolares 2027','Kits escolares para niños del programa.',5000000.00,4,'2026-09-13 00:26:06.489');
 /*!40000 ALTER TABLE `campana` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `consentimientodatos`
+--
+
+DROP TABLE IF EXISTS `consentimientodatos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `consentimientodatos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `finalidad` enum('REGISTRO','SOLICITUD_AYUDA') NOT NULL,
+  `versionPolitica` varchar(191) NOT NULL,
+  `usuarioId` int(11) NOT NULL,
+  `aceptadoEn` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  PRIMARY KEY (`id`),
+  KEY `ConsentimientoDatos_usuarioId_fkey` (`usuarioId`),
+  CONSTRAINT `ConsentimientoDatos_usuarioId_fkey` FOREIGN KEY (`usuarioId`) REFERENCES `usuario` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `consentimientodatos`
+--
+
+LOCK TABLES `consentimientodatos` WRITE;
+/*!40000 ALTER TABLE `consentimientodatos` DISABLE KEYS */;
+/*!40000 ALTER TABLE `consentimientodatos` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -104,8 +165,41 @@ CREATE TABLE `donacion` (
 
 LOCK TABLES `donacion` WRITE;
 /*!40000 ALTER TABLE `donacion` DISABLE KEYS */;
-INSERT INTO `donacion` VALUES (2,20000.00,'PASARELA','COMPLETADA',2,11,'2026-09-23 19:36:11.471');
+INSERT INTO `donacion` VALUES (1,50000.00,'PASARELA','COMPLETADA',1,3,'2026-09-13 00:28:27.045');
 /*!40000 ALTER TABLE `donacion` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `historialestado`
+--
+
+DROP TABLE IF EXISTS `historialestado`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `historialestado` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `entidad` enum('DONACION','INSCRIPCION','SOLICITUD') NOT NULL,
+  `entidadId` int(11) NOT NULL,
+  `estadoAnterior` varchar(191) DEFAULT NULL,
+  `estadoNuevo` varchar(191) NOT NULL,
+  `nota` varchar(191) DEFAULT NULL,
+  `usuarioId` int(11) DEFAULT NULL,
+  `creadoEn` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  PRIMARY KEY (`id`),
+  KEY `HistorialEstado_entidad_entidadId_idx` (`entidad`,`entidadId`),
+  KEY `HistorialEstado_usuarioId_fkey` (`usuarioId`),
+  CONSTRAINT `HistorialEstado_usuarioId_fkey` FOREIGN KEY (`usuarioId`) REFERENCES `usuario` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `historialestado`
+--
+
+LOCK TABLES `historialestado` WRITE;
+/*!40000 ALTER TABLE `historialestado` DISABLE KEYS */;
+INSERT INTO `historialestado` VALUES (1,'DONACION',1,NULL,'COMPLETADA','Registro previo a la bitácora',3,'2026-09-13 00:28:27.045'),(2,'INSCRIPCION',1,NULL,'PENDIENTE','Registro previo a la bitácora',3,'2026-09-13 00:28:53.806');
+/*!40000 ALTER TABLE `historialestado` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -121,12 +215,15 @@ CREATE TABLE `inscripcionvoluntario` (
   `voluntarioId` int(11) NOT NULL,
   `programaId` int(11) NOT NULL,
   `creadoEn` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  `actividadId` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `InscripcionVoluntario_voluntarioId_actividadId_key` (`voluntarioId`,`actividadId`),
   KEY `InscripcionVoluntario_programaId_fkey` (`programaId`),
-  KEY `InscripcionVoluntario_voluntarioId_fkey` (`voluntarioId`),
+  KEY `InscripcionVoluntario_actividadId_fkey` (`actividadId`),
+  CONSTRAINT `InscripcionVoluntario_actividadId_fkey` FOREIGN KEY (`actividadId`) REFERENCES `actividad` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `InscripcionVoluntario_programaId_fkey` FOREIGN KEY (`programaId`) REFERENCES `programa` (`id`) ON UPDATE CASCADE,
   CONSTRAINT `InscripcionVoluntario_voluntarioId_fkey` FOREIGN KEY (`voluntarioId`) REFERENCES `usuario` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -135,8 +232,40 @@ CREATE TABLE `inscripcionvoluntario` (
 
 LOCK TABLES `inscripcionvoluntario` WRITE;
 /*!40000 ALTER TABLE `inscripcionvoluntario` DISABLE KEYS */;
-INSERT INTO `inscripcionvoluntario` VALUES (3,'PENDIENTE',11,4,'2026-09-23 19:36:24.238');
+INSERT INTO `inscripcionvoluntario` VALUES (1,'PENDIENTE',3,3,'2026-09-13 00:28:53.806',NULL);
 /*!40000 ALTER TABLE `inscripcionvoluntario` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `pago`
+--
+
+DROP TABLE IF EXISTS `pago`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `pago` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `referencia` varchar(191) NOT NULL,
+  `metodo` enum('PASARELA','TRANSFERENCIA','EFECTIVO','LLAVE') NOT NULL,
+  `estado` enum('PENDIENTE','APROBADO','RECHAZADO') NOT NULL,
+  `respuestaPasarela` text DEFAULT NULL,
+  `donacionId` int(11) NOT NULL,
+  `creadoEn` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `Pago_referencia_key` (`referencia`),
+  UNIQUE KEY `Pago_donacionId_key` (`donacionId`),
+  CONSTRAINT `Pago_donacionId_fkey` FOREIGN KEY (`donacionId`) REFERENCES `donacion` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `pago`
+--
+
+LOCK TABLES `pago` WRITE;
+/*!40000 ALTER TABLE `pago` DISABLE KEYS */;
+INSERT INTO `pago` VALUES (1,'LEGADO-1','PASARELA','APROBADO',NULL,1,'2026-09-13 00:28:27.045');
+/*!40000 ALTER TABLE `pago` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -162,7 +291,7 @@ CREATE TABLE `programa` (
 
 LOCK TABLES `programa` WRITE;
 /*!40000 ALTER TABLE `programa` DISABLE KEYS */;
-INSERT INTO `programa` VALUES (4,'Apoyo Damnificados','Ayudas  a familias por terremoto',10,'2026-09-23 19:34:41.966');
+INSERT INTO `programa` VALUES (3,'Comedores comunitarios','Alimentación semanal para familias en situación de vulnerabilidad.',20,'2026-09-13 00:26:04.790'),(4,'Educación para la vida','Refuerzo escolar y talleres para niños y jóvenes.',15,'2026-09-13 00:26:05.062');
 /*!40000 ALTER TABLE `programa` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -194,7 +323,7 @@ CREATE TABLE `solicitudbeneficiario` (
   KEY `SolicitudBeneficiario_beneficiarioId_fkey` (`beneficiarioId`),
   CONSTRAINT `SolicitudBeneficiario_beneficiarioId_fkey` FOREIGN KEY (`beneficiarioId`) REFERENCES `usuario` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `SolicitudBeneficiario_programaId_fkey` FOREIGN KEY (`programaId`) REFERENCES `programa` (`id`) ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -218,11 +347,11 @@ CREATE TABLE `usuario` (
   `nombre` varchar(191) NOT NULL,
   `email` varchar(191) NOT NULL,
   `passwordHash` varchar(191) NOT NULL,
-  `rol` enum('DONANTE','VOLUNTARIO','BENEFICIARIO','ADMIN') NOT NULL,
+  `rol` enum('USUARIO','ADMIN') NOT NULL,
   `creadoEn` datetime(3) NOT NULL DEFAULT current_timestamp(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `Usuario_email_key` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -231,7 +360,7 @@ CREATE TABLE `usuario` (
 
 LOCK TABLES `usuario` WRITE;
 /*!40000 ALTER TABLE `usuario` DISABLE KEYS */;
-INSERT INTO `usuario` VALUES (1,'Administrador Casa Minuto de Dios','admin@casaminutodedios.org','$2b$10$9ViE3d8CV6GnVbr7zsdQG.JjNrfTeROQJZ0u7nGBILhXcxnkLDBwe','ADMIN','2026-09-23 17:46:23.466'),(10,'valery sarith zambrano rosero','valery123@gmail.com','$2b$10$w8htnSWsdwftkFr40vMhTeyIUdiNxXJM/dZxgRSe25zI0k4mVYrpy','DONANTE','2026-09-23 19:33:59.216'),(11,'dairon moreno','morenodairon78@gmail.com','$2b$10$EH8y3hJ1BiqOXCiIpUPZReoVTA.6tj4f7V1BIVpcnSxnUQ0Z8HnL2','DONANTE','2026-09-23 19:35:45.217');
+INSERT INTO `usuario` VALUES (1,'Ana Prueba','ana.prueba@example.com','$2b$10$OrQzfr3bwO7Bx5YMA3rd1.n0e0Gx4.jfs0dj2uMAsv.rbeIikLuFy','USUARIO','2026-09-13 00:22:17.706'),(2,'Admin RedMinuto','admin@redminuto.test','$2b$10$8lm7fkEqrdPN.OadjaRo/.NBYusT4Z8cwv0VYM3/z2Yro8FaByMIa','ADMIN','2026-09-13 00:25:53.931'),(3,'Valeria Rios','valeria.rios@example.com','$2b$10$uedsqvzOeeC4UKPglk2soeL6KgEsHa8jCaZo7mZQyxmZOyCrv5DLu','USUARIO','2026-09-13 00:27:47.051');
 /*!40000 ALTER TABLE `usuario` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -244,4 +373,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-09-23 14:38:04
+-- Dump completed on 2026-09-25  8:54:07
