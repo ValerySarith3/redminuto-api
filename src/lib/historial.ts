@@ -12,7 +12,6 @@ interface CambioEstado {
   nota?: string;
 }
 
-// Deja constancia de quién creó o cambió el estado de una donación, inscripción o solicitud (trazabilidad).
 export function registrarHistorial(cliente: Cliente, cambio: CambioEstado) {
   return cliente.historialEstado.create({
     data: {

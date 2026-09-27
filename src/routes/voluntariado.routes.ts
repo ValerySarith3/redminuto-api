@@ -8,7 +8,6 @@ export const voluntariadoRouter = Router();
 
 const ESTADOS_INSCRIPCION = ["PENDIENTE", "ACEPTADA", "RECHAZADA"];
 
-// Uso administrativo: expone datos personales de todos los voluntarios inscritos.
 voluntariadoRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
   const inscripciones = await prisma.inscripcionVoluntario.findMany({
     include: { voluntario: usuarioPublico, programa: true, actividad: true },
@@ -26,8 +25,6 @@ voluntariadoRouter.get("/mias", requireAuth, async (req, res) => {
   res.json(inscripciones);
 });
 
-// Inscripción a una actividad concreta: valida que no haya pasado y su cupo. Si solo llega programaId
-// (programa sin actividades publicadas) se valida el cupo general del programa, como antes.
 voluntariadoRouter.post("/", requireAuth, async (req, res) => {
   const { programaId, actividadId } = req.body;
   if (!programaId && !actividadId) return res.status(400).json({ error: "Falta la actividad o el programa" });

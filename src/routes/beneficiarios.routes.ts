@@ -9,7 +9,6 @@ export const beneficiariosRouter = Router();
 
 const ESTADOS_SOLICITUD = ["PENDIENTE", "EN_REVISION", "APROBADA", "RECHAZADA"];
 
-// Uso administrativo: expone descripciones y datos personales de todos los beneficiarios.
 beneficiariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
   const solicitudes = await prisma.solicitudBeneficiario.findMany({
     include: { beneficiario: usuarioPublico, programa: true },

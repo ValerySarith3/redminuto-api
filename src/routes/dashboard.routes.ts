@@ -32,7 +32,6 @@ async function avanceProgramaVoluntarios(programaId: number) {
   const programa = await prisma.programa.findUnique({ where: { id: programaId } });
   if (!programa) return null;
 
-  // Cuenta pendientes + aceptados: ambos ocupan un cupo (coincide con la validación al inscribirse).
   const inscritos = await prisma.inscripcionVoluntario.count({
     where: { programaId, estado: { not: "RECHAZADA" } },
   });
@@ -62,7 +61,6 @@ dashboardRouter.get("/programas/:id", async (req, res) => {
   res.json(avance);
 });
 
-// Vista de seguimiento personalizada: todo lo que el usuario logueado aportó, con el avance de cada campaña/programa.
 dashboardRouter.get("/mio", requireAuth, async (req, res) => {
   const userId = req.user!.id;
 

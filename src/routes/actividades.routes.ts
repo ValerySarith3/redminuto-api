@@ -16,7 +16,6 @@ async function conCupos<T extends { id: number; cupo: number }>(actividades: T[]
   });
 }
 
-// Público: por defecto solo las actividades de hoy en adelante. ?todas=1 incluye las pasadas.
 actividadesRouter.get("/", async (req, res) => {
   const hoy = new Date();
   hoy.setUTCHours(0, 0, 0, 0);

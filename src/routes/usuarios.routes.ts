@@ -9,7 +9,6 @@ export const usuariosRouter = Router();
 
 const ROLES_VALIDOS: Rol[] = ["USUARIO", "ADMIN"];
 
-// Uso administrativo: lista todos los usuarios con su rol y actividad.
 usuariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
   const usuarios = await prisma.usuario.findMany({
     select: {
@@ -25,7 +24,6 @@ usuariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => 
   res.json(usuarios);
 });
 
-// El administrador puede crear usuarios de cualquier rol, incluido ADMIN.
 usuariosRouter.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { nombre, email, password, rol } = req.body;
   if (!nombre || !email || !password || !rol) {
@@ -72,8 +70,6 @@ usuariosRouter.delete("/:id", requireAuth, requireRole("ADMIN"), async (req, res
   res.status(204).send();
 });
 
-// Autorregistro: siempre rol USUARIO (con la misma cuenta se dona, se hace voluntariado y se pide ayuda).
-// El rol ADMIN solo lo asigna otro administrador.
 usuariosRouter.post("/registro", async (req, res) => {
   const { nombre, email, password, aceptaTratamientoDatos } = req.body;
   if (!nombre || !email || !password) {

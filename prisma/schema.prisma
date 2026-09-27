@@ -7,7 +7,6 @@ datasource db {
   provider = "mysql"
 }
 
-// Una sola cuenta sirve para donar, ser voluntario y pedir ayuda; solo el personal de la sede es ADMIN.
 enum Rol {
   USUARIO
   ADMIN
@@ -102,7 +101,6 @@ model Programa {
   solicitudes SolicitudBeneficiario[]
 }
 
-// Jornada concreta de voluntariado dentro de un programa (fecha, horario, lugar y cupo propio).
 model Actividad {
   id          Int      @id @default(autoincrement())
   titulo      String
@@ -145,7 +143,6 @@ model Donacion {
   pago       Pago?
 }
 
-// Transacción con la pasarela (sandbox). La referencia única evita registrar dos veces el mismo pago.
 model Pago {
   id                Int           @id @default(autoincrement())
   referencia        String        @unique
@@ -191,7 +188,6 @@ model SolicitudBeneficiario {
   creadoEn      DateTime        @default(now())
 }
 
-// Bitácora de trazabilidad: cada creación o cambio de estado de una donación, inscripción o solicitud.
 model HistorialEstado {
   id             Int              @id @default(autoincrement())
   entidad        EntidadHistorial
@@ -206,7 +202,6 @@ model HistorialEstado {
   @@index([entidad, entidadId])
 }
 
-// Autorización de tratamiento de datos personales (Ley 1581 de 2012).
 model ConsentimientoDatos {
   id              Int                     @id @default(autoincrement())
   finalidad       FinalidadConsentimiento

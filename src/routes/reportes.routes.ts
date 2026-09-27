@@ -3,11 +3,9 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { numeroComprobante } from "../lib/comprobante";
 
-// Todo lo de este módulo es de uso administrativo: tablero general y exportación de reportes.
 export const reportesRouter = Router();
 reportesRouter.use(requireAuth, requireRole("ADMIN"));
 
-// ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD (ambos opcionales, "hasta" incluye el día completo).
 function rangoFechas(req: Request) {
   const { desde, hasta } = req.query;
   const filtro: { gte?: Date; lt?: Date } = {};
@@ -26,7 +24,6 @@ function contarPor<T, K extends string>(lista: T[], clave: (item: T) => K, todas
   return todas.map((k) => ({ clave: k, total: conteo[k] }));
 }
 
-// Contadores livianos para las insignias del menú del panel (lo que espera acción del admin).
 reportesRouter.get("/pendientes", async (_req, res) => {
   const [donaciones, inscripciones, solicitudes] = await Promise.all([
     prisma.donacion.count({ where: { estado: "PENDIENTE" } }),
@@ -42,7 +39,6 @@ reportesRouter.get("/resumen", async (req, res) => {
   hoy.setUTCHours(0, 0, 0, 0);
 
   const [usuarios, donaciones, inscripciones, solicitudes, campanas, actividades, recientes] = await Promise.all([
-    // Participación histórica: una misma cuenta puede donar, ser voluntaria y pedir ayuda.
     Promise.all([
       prisma.usuario.count({ where: { rol: "USUARIO" } }),
       prisma.donacion.groupBy({ by: ["donanteId"], where: { donanteId: { not: null } } }),
@@ -69,7 +65,6 @@ reportesRouter.get("/resumen", async (req, res) => {
     }),
   ]);
 
-  // Recaudo histórico de cada campaña frente a su meta (no depende del rango: es el avance real).
   const recaudoPorCampana = await prisma.donacion.groupBy({
     by: ["campanaId"],
     where: { estado: "COMPLETADA" },
@@ -86,7 +81,6 @@ reportesRouter.get("/resumen", async (req, res) => {
   const pendientes = donaciones.filter((d) => d.estado === "PENDIENTE");
   const suma = (lista: { monto: unknown }[]) => lista.reduce((t, d) => t + Number(d.monto), 0);
 
-  // Recaudo confirmado agrupado por mes (AAAA-MM).
   const porMes = new Map<string, { total: number; cantidad: number }>();
   for (const d of completadas) {
     const mes = `${d.creadoEn.getFullYear()}-${String(d.creadoEn.getMonth() + 1).padStart(2, "0")}`;
@@ -171,7 +165,6 @@ reportesRouter.get("/resumen", async (req, res) => {
   });
 });
 
-// --- Exportación CSV (se abre directo en Excel: separador ";" y BOM para las tildes) ---
 
 const formatoFecha = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "America/Bogota",

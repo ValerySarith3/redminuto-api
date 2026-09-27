@@ -17,7 +17,6 @@ function esErrorUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002";
 }
 
-// Uso administrativo: expone datos personales de todos los donantes.
 donacionesRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
   const donaciones = await prisma.donacion.findMany({
     include: { campana: { include: { programa: true } }, donante: usuarioPublico, pago: true },
@@ -48,9 +47,6 @@ donacionesRouter.get("/:id", requireAuth, async (req, res) => {
   res.json({ ...conComprobante(donacion), historial });
 });
 
-// Simula el resultado de una pasarela de pago en modo sandbox (Wompi/PayU) — no procesa dinero real.
-// `referencia` la genera el cliente una vez por intento: si llega repetida (doble clic, reintento tras un fallo
-// de red) se devuelve la donación ya registrada en vez de crear otra.
 donacionesRouter.post("/", requireAuth, async (req, res) => {
   const { monto, canal, campanaId, referencia } = req.body;
   if (!monto || !canal || !campanaId || !referencia) {
@@ -103,7 +99,6 @@ donacionesRouter.post("/", requireAuth, async (req, res) => {
     });
     res.status(201).json(conComprobante(donacion));
   } catch (e) {
-    // Dos peticiones con la misma referencia al mismo tiempo: gana una y la otra devuelve la ya creada.
     if (esErrorUnico(e)) {
       const creada = await buscarExistente();
       if (creada) return res.json(conComprobante(creada.donacion));
