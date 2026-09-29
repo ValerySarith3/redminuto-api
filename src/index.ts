@@ -11,11 +11,14 @@ import { beneficiariosRouter } from "./routes/beneficiarios.routes";
 import { dashboardRouter } from "./routes/dashboard.routes";
 import { actividadesRouter } from "./routes/actividades.routes";
 import { reportesRouter } from "./routes/reportes.routes";
+import { pagosRouter, sincronizarPagosPendientes } from "./routes/pagos.routes";
 
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json());
+// PayU envía la confirmación de pagos como formulario.
+app.use(express.urlencoded({ extended: false }));
 
 app.get("/api", (_req, res) => res.json({ status: "ok", proyecto: "RedMinuto API" }));
 
@@ -28,8 +31,13 @@ app.use("/api/beneficiarios", beneficiariosRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/actividades", actividadesRouter);
 app.use("/api/reportes", reportesRouter);
+app.use("/api/pagos", pagosRouter);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
   console.log(`RedMinuto API escuchando en http://localhost:${port}`);
 });
+
+// Cada minuto se pregunta a PayU por los pagos que siguen pendientes.
+setInterval(() => void sincronizarPagosPendientes(), 60_000);
+void sincronizarPagosPendientes();

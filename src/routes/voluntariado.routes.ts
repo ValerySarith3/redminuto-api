@@ -26,48 +26,28 @@ voluntariadoRouter.get("/mias", requireAuth, async (req, res) => {
 });
 
 voluntariadoRouter.post("/", requireAuth, async (req, res) => {
-  const { programaId, actividadId } = req.body;
-  if (!programaId && !actividadId) return res.status(400).json({ error: "Falta la actividad o el programa" });
+  const { actividadId } = req.body;
+  if (!actividadId) return res.status(400).json({ error: "Elige una jornada con fecha y hora para inscribirte" });
 
-  let datos: { programaId: number; actividadId?: number };
+  const actividad = await prisma.actividad.findUnique({ where: { id: Number(actividadId) } });
+  if (!actividad) return res.status(404).json({ error: "Jornada no encontrada" });
 
-  if (actividadId) {
-    const actividad = await prisma.actividad.findUnique({ where: { id: Number(actividadId) } });
-    if (!actividad) return res.status(404).json({ error: "Actividad no encontrada" });
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+  if (actividad.fecha < hoy) return res.status(409).json({ error: "Esta jornada ya se realizó" });
 
-    const hoy = new Date();
-    hoy.setUTCHours(0, 0, 0, 0);
-    if (actividad.fecha < hoy) return res.status(409).json({ error: "Esta actividad ya se realizó" });
+  const yaInscrito = await prisma.inscripcionVoluntario.findFirst({
+    where: { voluntarioId: req.user!.id, actividadId: actividad.id },
+  });
+  if (yaInscrito) return res.status(409).json({ error: "Ya estás inscrito en esta jornada" });
 
-    const yaInscrito = await prisma.inscripcionVoluntario.findFirst({
-      where: { voluntarioId: req.user!.id, actividadId: actividad.id },
-    });
-    if (yaInscrito) return res.status(409).json({ error: "Ya estás inscrito en esta actividad" });
-
-    const ocupados = await prisma.inscripcionVoluntario.count({
-      where: { actividadId: actividad.id, estado: { not: "RECHAZADA" } },
-    });
-    if (ocupados >= actividad.cupo) {
-      return res.status(409).json({ error: "No hay cupo disponible para esta actividad" });
-    }
-    datos = { programaId: actividad.programaId, actividadId: actividad.id };
-  } else {
-    const programa = await prisma.programa.findUnique({ where: { id: Number(programaId) } });
-    if (!programa) return res.status(404).json({ error: "Programa no encontrado" });
-
-    const yaInscrito = await prisma.inscripcionVoluntario.findFirst({
-      where: { voluntarioId: req.user!.id, programaId: programa.id, actividadId: null },
-    });
-    if (yaInscrito) return res.status(409).json({ error: "Ya estás inscrito en este programa" });
-
-    const ocupados = await prisma.inscripcionVoluntario.count({
-      where: { programaId: programa.id, estado: { not: "RECHAZADA" } },
-    });
-    if (ocupados >= programa.metaCupoVoluntarios) {
-      return res.status(409).json({ error: "No hay cupo disponible para este programa" });
-    }
-    datos = { programaId: programa.id };
+  const ocupados = await prisma.inscripcionVoluntario.count({
+    where: { actividadId: actividad.id, estado: { not: "RECHAZADA" } },
+  });
+  if (ocupados >= actividad.cupo) {
+    return res.status(409).json({ error: "No hay cupo disponible para esta jornada" });
   }
+  const datos = { programaId: actividad.programaId, actividadId: actividad.id };
 
   const inscripcion = await prisma.$transaction(async (tx) => {
     const nueva = await tx.inscripcionVoluntario.create({

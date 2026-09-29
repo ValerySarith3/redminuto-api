@@ -79,12 +79,17 @@ model Usuario {
   email       String   @unique
   passwordHash String
   rol         Rol
+  telefono        String?
+  tipoDocumento   TipoDocumento?
+  numeroDocumento String?
+  ciudad          String?
   creadoEn    DateTime @default(now())
 
   donaciones     Donacion[]
   inscripciones  InscripcionVoluntario[]
   solicitudes    SolicitudBeneficiario[]
   cambiosEstado  HistorialEstado[]
+  logCambios     LogCambio[]
   consentimientos ConsentimientoDatos[]
 }
 
@@ -209,4 +214,26 @@ model ConsentimientoDatos {
   usuarioId       Int
   usuario         Usuario                 @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   aceptadoEn      DateTime                @default(now())
+}
+
+// Log de cambios: acciones sobre cuentas y contenido (los cambios de estado viven en HistorialEstado).
+model LogCambio {
+  id          Int      @id @default(autoincrement())
+  modulo      String   @db.VarChar(30)
+  accion      String   @db.VarChar(40)
+  exitoso     Boolean  @default(true)
+  descripcion String   @db.Text
+  // A quién o a qué se le hizo el cambio: tipo ("Usuario", "Programa"…) y nombre.
+  afectadoTipo   String? @db.VarChar(40)
+  afectadoNombre String? @db.VarChar(255)
+  // JSON con los campos que cambiaron: { "Campo": "valor" }.
+  datosAnteriores String? @db.Text
+  datosNuevos     String? @db.Text
+  usuarioId   Int?
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  ip          String?  @db.VarChar(64)
+  creadoEn    DateTime @default(now())
+
+  @@index([creadoEn])
+  @@index([modulo])
 }

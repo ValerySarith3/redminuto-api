@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { numeroComprobante } from "../lib/comprobante";
 import { usuarioPublico } from "../lib/usuarioPublico";
 import { historialDe, registrarHistorial } from "../lib/historial";
+import { pasarelaConfigurada, sincronizarPagosPendientes } from "./pagos.routes";
 
 export const donacionesRouter = Router();
 
@@ -18,6 +19,7 @@ function esErrorUnico(e: unknown): boolean {
 }
 
 donacionesRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
+  await sincronizarPagosPendientes();
   const donaciones = await prisma.donacion.findMany({
     include: { campana: { include: { programa: true } }, donante: usuarioPublico, pago: true },
     orderBy: { creadoEn: "desc" },
@@ -26,6 +28,7 @@ donacionesRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) =
 });
 
 donacionesRouter.get("/mias", requireAuth, async (req, res) => {
+  await sincronizarPagosPendientes(req.user!.id);
   const donaciones = await prisma.donacion.findMany({
     where: { donanteId: req.user!.id },
     include: { campana: { include: { programa: true } } },
@@ -58,6 +61,10 @@ donacionesRouter.post("/", requireAuth, async (req, res) => {
       where: { referencia: String(referencia) },
       include: { donacion: { include: { campana: true } } },
     });
+
+  if (canal === "PASARELA" && pasarelaConfigurada()) {
+    return res.status(400).json({ error: "Los pagos con tarjeta o PSE se hacen a través de PayU" });
+  }
 
   const existente = await buscarExistente();
   if (existente) return res.json(conComprobante(existente.donacion));

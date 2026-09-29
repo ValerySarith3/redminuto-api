@@ -1,5 +1,27 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
+import { registrarCambio, cambios } from "../lib/logCambios";
+
+const conPrograma = { programa: { select: { nombre: true } } } as const;
+const datosLog = (a: {
+  titulo: string;
+  descripcion: string;
+  fecha: Date;
+  horaInicio: string;
+  horaFin: string;
+  lugar: string;
+  cupo: number;
+  programa: { nombre: string };
+}) => ({
+  Título: a.titulo,
+  Descripción: a.descripcion,
+  Fecha: a.fecha,
+  "Hora de inicio": a.horaInicio,
+  "Hora de fin": a.horaFin,
+  Lugar: a.lugar,
+  Cupo: a.cupo,
+  Programa: a.programa.nombre,
+});
 import { requireAuth, requireRole } from "../middleware/auth";
 
 export const actividadesRouter = Router();
@@ -50,14 +72,30 @@ function datosActividad(body: Record<string, unknown>) {
 actividadesRouter.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const data = datosActividad(req.body);
   if (!data) return res.status(400).json({ error: "Faltan campos obligatorios" });
-  const actividad = await prisma.actividad.create({ data });
+  const actividad = await prisma.actividad.create({ data, include: conPrograma });
+  await registrarCambio(req, {
+    modulo: "ACTIVIDADES",
+    accion: "CREAR",
+    afectado: { tipo: "Actividad", nombre: actividad.titulo },
+    descripcion: `Creó la actividad «${actividad.titulo}»`,
+    nuevo: datosLog(actividad),
+  });
   res.status(201).json(actividad);
 });
 
 actividadesRouter.put("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const data = datosActividad(req.body);
   if (!data) return res.status(400).json({ error: "Faltan campos obligatorios" });
-  const actividad = await prisma.actividad.update({ where: { id: Number(req.params.id) }, data });
+  const antes = await prisma.actividad.findUnique({ where: { id: Number(req.params.id) }, include: conPrograma });
+  if (!antes) return res.status(404).json({ error: "Actividad no encontrada" });
+  const actividad = await prisma.actividad.update({ where: { id: Number(req.params.id) }, data, include: conPrograma });
+  await registrarCambio(req, {
+    modulo: "ACTIVIDADES",
+    accion: "EDITAR",
+    afectado: { tipo: "Actividad", nombre: actividad.titulo },
+    descripcion: `Editó la actividad «${actividad.titulo}»`,
+    ...cambios(datosLog(antes), datosLog(actividad)),
+  });
   res.json(actividad);
 });
 
@@ -67,6 +105,13 @@ actividadesRouter.delete("/:id", requireAuth, requireRole("ADMIN"), async (req, 
   if (inscritos > 0) {
     return res.status(409).json({ error: "No se puede eliminar: la actividad ya tiene voluntarios inscritos." });
   }
-  await prisma.actividad.delete({ where: { id } });
+  const actividad = await prisma.actividad.delete({ where: { id }, include: conPrograma });
+  await registrarCambio(req, {
+    modulo: "ACTIVIDADES",
+    accion: "ELIMINAR",
+    afectado: { tipo: "Actividad", nombre: actividad.titulo },
+    descripcion: `Eliminó la actividad «${actividad.titulo}»`,
+    anterior: datosLog(actividad),
+  });
   res.status(204).send();
 });

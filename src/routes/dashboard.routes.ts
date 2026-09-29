@@ -32,16 +32,24 @@ async function avanceProgramaVoluntarios(programaId: number) {
   const programa = await prisma.programa.findUnique({ where: { id: programaId } });
   if (!programa) return null;
 
+  // El cupo del programa es la suma de los cupos de sus jornadas próximas.
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+  const jornadas = await prisma.actividad.findMany({
+    where: { programaId, fecha: { gte: hoy } },
+    select: { id: true, cupo: true },
+  });
   const inscritos = await prisma.inscripcionVoluntario.count({
-    where: { programaId, estado: { not: "RECHAZADA" } },
+    where: { actividadId: { in: jornadas.map((j) => j.id) }, estado: { not: "RECHAZADA" } },
   });
 
-  const cupo = programa.metaCupoVoluntarios;
+  const cupo = jornadas.reduce((total, j) => total + j.cupo, 0);
   const porcentaje = cupo > 0 ? Math.min(100, (inscritos / cupo) * 100) : 0;
 
   return {
     programaId,
     nombre: programa.nombre,
+    jornadas: jornadas.length,
     cupo,
     inscritos,
     faltan: Math.max(0, cupo - inscritos),
