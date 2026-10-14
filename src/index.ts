@@ -17,6 +17,8 @@ import { listasRouter } from "./routes/listas.routes";
 import { pagosRouter, sincronizarPagosPendientes } from "./routes/pagos.routes";
 
 const app = express();
+// En Render la API está detrás de un proxy: así el límite de intentos ve la IP real de cada usuario.
+app.set("trust proxy", 1);
 
 // Cabeceras de seguridad HTTP. La API la consume el frontend desde otro origen, así que se permiten sus recursos entre orígenes.
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));

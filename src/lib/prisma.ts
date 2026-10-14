@@ -7,6 +7,8 @@ const adapter = new PrismaMariaDb({
   user: process.env.DB_USERNAME ?? "root",
   password: process.env.DB_PASSWORD ?? "",
   database: process.env.DB_DATABASE ?? "redminuto",
+  // Las bases en la nube (Aiven) exigen conexión cifrada; en local no se usa.
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
 });
 
 export const prisma = new PrismaClient({ adapter });
