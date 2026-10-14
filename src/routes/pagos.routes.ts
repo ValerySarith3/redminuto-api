@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "../lib/prisma";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
+import { cambios, registrarCambio } from "../lib/logCambios";
 import { numeroComprobante } from "../lib/comprobante";
 import { registrarHistorial } from "../lib/historial";
 import type { EstadoDonacion, EstadoPago } from "../generated/prisma/client";
@@ -58,6 +59,60 @@ function firmaValida(recibida: unknown, esperada: string) {
 
 pagosRouter.get("/config", (_req, res) => {
   res.json({ pasarela: pasarelaConfigurada() ? "payu" : null, pruebas: payu.pruebas });
+});
+
+const CAMPOS_DATOS_PAGO = {
+  banco: "Banco",
+  tipoCuenta: "Tipo de cuenta",
+  numeroCuenta: "Número de cuenta",
+  titular: "Titular",
+  nit: "NIT",
+  llave: "Llave Bre-B",
+  direccionEfectivo: "Dirección (efectivo)",
+  horarioEfectivo: "Horario (efectivo)",
+} as const;
+type CampoDatosPago = keyof typeof CAMPOS_DATOS_PAGO;
+
+const datosPagoSelect = Object.fromEntries(Object.keys(CAMPOS_DATOS_PAGO).map((c) => [c, true])) as Record<
+  CampoDatosPago,
+  true
+>;
+
+// Para el log: los datos con etiquetas legibles.
+function datosLegibles(datos: Record<CampoDatosPago, string> | null) {
+  return Object.fromEntries(
+    (Object.keys(CAMPOS_DATOS_PAGO) as CampoDatosPago[]).map((c) => [CAMPOS_DATOS_PAGO[c], datos?.[c] ?? null]),
+  );
+}
+
+// Público: el donante los ve al elegir transferencia, llave o efectivo.
+pagosRouter.get("/datos", async (_req, res) => {
+  const datos = await prisma.datosPago.findUnique({ where: { id: 1 }, select: datosPagoSelect });
+  res.json(datos);
+});
+
+pagosRouter.put("/datos", requireAuth, requireRole("ADMIN"), async (req, res) => {
+  const datos = {} as Record<CampoDatosPago, string>;
+  for (const campo of Object.keys(CAMPOS_DATOS_PAGO) as CampoDatosPago[]) {
+    const valor = typeof req.body[campo] === "string" ? req.body[campo].trim() : "";
+    if (!valor) return res.status(400).json({ error: `Falta el campo "${CAMPOS_DATOS_PAGO[campo]}"` });
+    datos[campo] = valor;
+  }
+  const anterior = await prisma.datosPago.findUnique({ where: { id: 1 }, select: datosPagoSelect });
+  const actualizados = await prisma.datosPago.upsert({
+    where: { id: 1 },
+    create: { id: 1, ...datos },
+    update: datos,
+    select: datosPagoSelect,
+  });
+  await registrarCambio(req, {
+    modulo: "DONACIONES",
+    accion: "EDITAR",
+    afectado: { tipo: "Datos de pago", nombre: "Transferencia, llave y efectivo" },
+    descripcion: "Actualizó los datos de pago para transferencia, llave Bre-B y efectivo",
+    ...cambios(datosLegibles(anterior), datosLegibles(actualizados)),
+  });
+  res.json(actualizados);
 });
 
 pagosRouter.post("/payu/iniciar", requireAuth, async (req, res) => {

@@ -1,6 +1,7 @@
 import { Router, type Request } from "express";
 import ExcelJS from "exceljs";
 import { prisma } from "../lib/prisma";
+import { opcionResumen } from "../lib/listasMaestras";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { numeroComprobante } from "../lib/comprobante";
 
@@ -256,7 +257,7 @@ reportesRouter.get("/exportar/inscripciones", async (req, res) => {
 reportesRouter.get("/exportar/solicitudes", async (req, res) => {
   const solicitudes = await prisma.solicitudBeneficiario.findMany({
     where: rangoFechas(req),
-    include: { programa: true },
+    include: { programa: true, tipoDocumento: opcionResumen },
     orderBy: { creadoEn: "desc" },
   });
   enviarCsv(
@@ -267,7 +268,7 @@ reportesRouter.get("/exportar/solicitudes", async (req, res) => {
       s.id,
       s.creadoEn,
       s.nombreCompleto,
-      `${s.tipoDocumento} ${s.numeroDocumento}`,
+      `${s.tipoDocumento.codigo} ${s.numeroDocumento}`,
       s.telefono,
       s.ciudad,
       s.personasACargo,
@@ -344,7 +345,7 @@ reportesRouter.get("/exportar/excel", async (req, res) => {
       where: rango,
       include: {
         voluntario: {
-          select: { nombre: true, email: true, telefono: true, tipoDocumento: true, numeroDocumento: true, ciudad: true },
+          select: { nombre: true, email: true, telefono: true, tipoDocumento: opcionResumen, numeroDocumento: true, ciudad: true },
         },
         programa: true,
         actividad: true,
@@ -353,7 +354,7 @@ reportesRouter.get("/exportar/excel", async (req, res) => {
     }),
     prisma.solicitudBeneficiario.findMany({
       where: rango,
-      include: { programa: true, beneficiario: { select: { email: true } } },
+      include: { programa: true, beneficiario: { select: { email: true } }, tipoDocumento: opcionResumen },
       orderBy: { creadoEn: "desc" },
     }),
   ]);
@@ -451,7 +452,7 @@ reportesRouter.get("/exportar/excel", async (req, res) => {
     i.voluntario.nombre,
     i.voluntario.email,
     i.voluntario.telefono ?? "",
-    i.voluntario.numeroDocumento ? `${i.voluntario.tipoDocumento ?? ""} ${i.voluntario.numeroDocumento}`.trim() : "",
+    i.voluntario.numeroDocumento ? `${i.voluntario.tipoDocumento?.codigo ?? ""} ${i.voluntario.numeroDocumento}`.trim() : "",
     i.voluntario.ciudad ?? "",
     i.programa.nombre,
     i.actividad?.titulo ?? "(programa general)",
@@ -478,7 +479,7 @@ reportesRouter.get("/exportar/excel", async (req, res) => {
     s.id,
     fechaBogota(s.creadoEn),
     s.nombreCompleto,
-    `${s.tipoDocumento} ${s.numeroDocumento}`,
+    `${s.tipoDocumento.codigo} ${s.numeroDocumento}`,
     s.telefono,
     s.beneficiario.email,
     s.direccion,
@@ -522,7 +523,6 @@ interface EventoLog {
   fecha: Date;
   modulo: string;
   accion: string;
-  exitoso: boolean;
   descripcion: string;
   afectado: { tipo: string; nombre: string } | null;
   informacionAnterior: Record<string, string> | null;
@@ -551,7 +551,7 @@ async function eventosLog(rango: Rango): Promise<EventoLog[]> {
   const conUsuario = { usuario: { select: { nombre: true, email: true, rol: true } } } as const;
   const [log, historial] = await Promise.all([
     prisma.logCambio.findMany({ where: rango, include: conUsuario, orderBy: { creadoEn: "desc" }, take: MAX_POR_FUENTE }),
-    prisma.historialEstado.findMany({ where: rango, include: conUsuario, orderBy: { creadoEn: "desc" }, take: MAX_POR_FUENTE }),
+    prisma.historialEstado.findMany({ where: { ...rango, estadoAnterior: { not: null } }, include: conUsuario, orderBy: { creadoEn: "desc" }, take: MAX_POR_FUENTE }),
   ]);
 
   const ids = (entidad: string) => [...new Set(historial.filter((h) => h.entidad === entidad).map((h) => h.entidadId))];
@@ -627,7 +627,6 @@ async function eventosLog(rango: Rango): Promise<EventoLog[]> {
       fecha: a.creadoEn,
       modulo: a.modulo,
       accion: a.accion,
-      exitoso: a.exitoso,
       descripcion: a.descripcion,
       afectado: a.afectadoTipo && a.afectadoNombre ? { tipo: a.afectadoTipo, nombre: a.afectadoNombre } : null,
       informacionAnterior: leerDatos(a.datosAnteriores),
@@ -640,8 +639,7 @@ async function eventosLog(rango: Rango): Promise<EventoLog[]> {
       id: `H-${h.id}`,
       fecha: h.creadoEn,
       modulo: MODULO_DE_ENTIDAD[h.entidad],
-      accion: h.estadoAnterior ? "CAMBIO_ESTADO" : "CREAR",
-      exitoso: true,
+      accion: "CAMBIO_ESTADO",
       descripcion: describir(h.entidad, h.entidadId),
       afectado: afectadoDe(h.entidad, h.entidadId),
       informacionAnterior: h.estadoAnterior ? { Estado: etiqueta(h.estadoAnterior) } : null,
@@ -655,14 +653,13 @@ async function eventosLog(rango: Rango): Promise<EventoLog[]> {
 }
 
 reportesRouter.get("/log-cambios", async (req, res) => {
-  const { modulo, accion, resultado, formato } = req.query;
+  const { modulo, accion, formato } = req.query;
   const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
 
   const filtrados = (await eventosLog(rangoFechas(req))).filter(
     (e) =>
       (!modulo || e.modulo === modulo) &&
       (!accion || e.accion === accion) &&
-      (!resultado || (resultado === "FALLIDO" ? !e.exitoso : e.exitoso)) &&
       (!q ||
         [
           e.descripcion,
@@ -683,14 +680,13 @@ reportesRouter.get("/log-cambios", async (req, res) => {
     return enviarCsv(
       res,
       "redminuto-log-de-cambios",
-      ["Fecha", "Realizado por", "Correo", "Módulo", "Acción", "Resultado", "Tipo de registro afectado", "Registro afectado", "Detalle", "Información anterior", "Información nueva", "Nota"],
+      ["Fecha", "Realizado por", "Correo", "Módulo", "Acción", "Tipo de registro afectado", "Registro afectado", "Detalle", "Información anterior", "Información nueva", "Nota"],
       filtrados.map((e) => [
         e.fecha,
         e.usuario?.nombre ?? "Sistema",
         e.usuario?.email ?? "",
         e.modulo,
         e.accion,
-        e.exitoso ? "Exitoso" : "Fallido",
         e.afectado?.tipo ?? "",
         e.afectado?.nombre ?? "",
         e.descripcion,

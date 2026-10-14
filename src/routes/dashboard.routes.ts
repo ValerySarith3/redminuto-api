@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { numeroComprobante } from "../lib/comprobante";
 import { historialDe } from "../lib/historial";
+import { certificadoDisponible, finDeJornada } from "../lib/certificado";
 
 export const dashboardRouter = Router();
 
@@ -93,7 +94,16 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
   const campanaIds = [...new Set(donaciones.map((d) => d.campanaId))];
   const programaIdsVoluntario = [...new Set(inscripciones.map((i) => i.programaId))];
 
-  const avancesCampanas = await Promise.all(campanaIds.map(avanceCampana));
+  const [avancesCampanas, novedades] = await Promise.all([
+    Promise.all(campanaIds.map(avanceCampana)),
+    // Novedades de impacto de las campañas a las que la persona ha donado.
+    prisma.novedadCampana.findMany({
+      where: { campanaId: { in: campanaIds } },
+      include: { campana: { select: { id: true, titulo: true } } },
+      orderBy: { creadoEn: "desc" },
+      take: 20,
+    }),
+  ]);
   const avancesProgramas = await Promise.all(programaIdsVoluntario.map(avanceProgramaVoluntarios));
 
   const [histDonaciones, histInscripciones, histSolicitudes] = await Promise.all([
@@ -145,8 +155,10 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
           horaInicio: i.actividad.horaInicio,
           horaFin: i.actividad.horaFin,
           lugar: i.actividad.lugar,
+          finalizaEn: finDeJornada(i.actividad.fecha, i.actividad.horaFin),
         }
       : null,
+    certificadoDisponible: certificadoDisponible(i.estado, i.actividad),
     historial: lineaDeTiempo(histInscripciones, i.id),
   }));
 
@@ -164,5 +176,12 @@ dashboardRouter.get("/mio", requireAuth, async (req, res) => {
     donaciones: donacionesConAvance,
     inscripciones: inscripcionesConAvance,
     solicitudes: solicitudesConPrograma,
+    novedades: novedades.map((n) => ({
+      id: n.id,
+      titulo: n.titulo,
+      contenido: n.contenido,
+      creadoEn: n.creadoEn,
+      campana: n.campana,
+    })),
   });
 });

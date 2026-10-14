@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 import { usuariosRouter } from "./routes/usuarios.routes";
 import { programasRouter } from "./routes/programas.routes";
@@ -11,11 +13,32 @@ import { beneficiariosRouter } from "./routes/beneficiarios.routes";
 import { dashboardRouter } from "./routes/dashboard.routes";
 import { actividadesRouter } from "./routes/actividades.routes";
 import { reportesRouter } from "./routes/reportes.routes";
+import { listasRouter } from "./routes/listas.routes";
 import { pagosRouter, sincronizarPagosPendientes } from "./routes/pagos.routes";
 
 const app = express();
 
+// Cabeceras de seguridad HTTP. La API la consume el frontend desde otro origen, así que se permiten sus recursos entre orígenes.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
+
+// Límite de intentos para frenar ataques de fuerza bruta contra el inicio de sesión y el registro masivo de cuentas.
+const limiteLogin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Demasiados intentos de inicio de sesión. Espera 15 minutos e inténtalo de nuevo." },
+});
+const limiteRegistro = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Se han creado demasiadas cuentas desde esta conexión. Inténtalo más tarde." },
+});
+app.use("/api/usuarios/login", limiteLogin);
+app.use("/api/usuarios/registro", limiteRegistro);
 app.use(express.json());
 // PayU envía la confirmación de pagos como formulario.
 app.use(express.urlencoded({ extended: false }));
@@ -32,6 +55,7 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/actividades", actividadesRouter);
 app.use("/api/reportes", reportesRouter);
 app.use("/api/pagos", pagosRouter);
+app.use("/api/listas", listasRouter);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {

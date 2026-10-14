@@ -6,14 +6,13 @@ export type ModuloLog =
   | "USUARIOS"
   | "PROGRAMAS"
   | "CAMPANAS"
+  | "LISTAS"
   | "ACTIVIDADES"
   | "DONACIONES"
   | "VOLUNTARIADO"
   | "SOLICITUDES";
 
 export type AccionLog =
-  | "INICIO_SESION"
-  | "REGISTRO"
   | "CREAR"
   | "EDITAR"
   | "ELIMINAR"
@@ -55,7 +54,6 @@ interface Evento {
   descripcion: string;
   // A quién o a qué se le hizo el cambio (un usuario, un programa, una donación…).
   afectado: { tipo: string; nombre: string };
-  exitoso?: boolean;
   // Información antes y después del cambio, como { "Campo": valor }.
   anterior?: Datos | null;
   nuevo?: Datos | null;
@@ -79,7 +77,6 @@ export async function registrarCambio(req: Request, evento: Evento) {
         descripcion: evento.descripcion,
         afectadoTipo: evento.afectado.tipo.slice(0, 40),
         afectadoNombre: evento.afectado.nombre.slice(0, 255),
-        exitoso: evento.exitoso ?? true,
         datosAnteriores: serializar(evento.anterior),
         datosNuevos: serializar(evento.nuevo),
         usuarioId: evento.usuarioId === undefined ? (req.user?.id ?? null) : evento.usuarioId,

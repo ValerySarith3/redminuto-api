@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { Rol } from "../generated/prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-cambiar-en-produccion";
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-cambiar-en-produccion";
 
 export interface TokenPayload {
   id: number;

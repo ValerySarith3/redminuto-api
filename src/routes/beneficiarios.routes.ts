@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { usuarioPublico } from "../lib/usuarioPublico";
 import { registrarHistorial } from "../lib/historial";
 import { VERSION_POLITICA_DATOS } from "../lib/consentimiento";
+import { LISTA, idOpcion, opcionResumen, opcionValida } from "../lib/listasMaestras";
 
 export const beneficiariosRouter = Router();
 
@@ -11,7 +12,7 @@ const ESTADOS_SOLICITUD = ["PENDIENTE", "EN_REVISION", "APROBADA", "RECHAZADA"];
 
 beneficiariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => {
   const solicitudes = await prisma.solicitudBeneficiario.findMany({
-    include: { beneficiario: usuarioPublico, programa: true },
+    include: { beneficiario: usuarioPublico, programa: true, tipoDocumento: opcionResumen },
     orderBy: { creadoEn: "desc" },
   });
   res.json(solicitudes);
@@ -20,7 +21,7 @@ beneficiariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res
 beneficiariosRouter.get("/mias", requireAuth, async (req, res) => {
   const solicitudes = await prisma.solicitudBeneficiario.findMany({
     where: { beneficiarioId: req.user!.id },
-    include: { programa: true },
+    include: { programa: true, tipoDocumento: opcionResumen },
     orderBy: { creadoEn: "desc" },
   });
   res.json(solicitudes);
@@ -32,7 +33,6 @@ beneficiariosRouter.post("/", requireAuth, async (req, res) => {
     programaId,
     tipoApoyo,
     nombreCompleto,
-    tipoDocumento,
     numeroDocumento,
     telefono,
     direccion,
@@ -40,13 +40,14 @@ beneficiariosRouter.post("/", requireAuth, async (req, res) => {
     personasACargo,
     aceptaTratamientoDatos,
   } = req.body;
+  const tipoDocumentoId = idOpcion(req.body.tipoDocumentoId);
 
   if (
     !descripcion ||
     !programaId ||
     !tipoApoyo ||
     !nombreCompleto ||
-    !tipoDocumento ||
+    !tipoDocumentoId ||
     !numeroDocumento ||
     !telefono ||
     !direccion ||
@@ -54,6 +55,9 @@ beneficiariosRouter.post("/", requireAuth, async (req, res) => {
     !personasACargo
   ) {
     return res.status(400).json({ error: "Faltan campos obligatorios" });
+  }
+  if (tipoDocumentoId === null || !(await opcionValida(LISTA.TIPO_DOCUMENTO, tipoDocumentoId))) {
+    return res.status(400).json({ error: "Tipo de documento inválido" });
   }
   if (!aceptaTratamientoDatos) {
     return res.status(400).json({ error: "Debes autorizar el tratamiento de tus datos personales para continuar" });
@@ -65,7 +69,7 @@ beneficiariosRouter.post("/", requireAuth, async (req, res) => {
         descripcion,
         tipoApoyo,
         nombreCompleto,
-        tipoDocumento,
+        tipoDocumentoId,
         numeroDocumento,
         telefono,
         direccion,
@@ -75,7 +79,7 @@ beneficiariosRouter.post("/", requireAuth, async (req, res) => {
         beneficiarioId: req.user!.id,
         programaId: Number(programaId),
       },
-      include: { programa: true },
+      include: { programa: true, tipoDocumento: opcionResumen },
     });
     await tx.consentimientoDatos.create({
       data: { usuarioId: req.user!.id, finalidad: "SOLICITUD_AYUDA", versionPolitica: VERSION_POLITICA_DATOS },

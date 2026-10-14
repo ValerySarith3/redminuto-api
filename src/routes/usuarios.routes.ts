@@ -3,13 +3,13 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { registrarCambio, cambios } from "../lib/logCambios";
 import { firmarToken, requireAuth, requireRole } from "../middleware/auth";
-import type { Rol, TipoDocumento } from "../generated/prisma/client";
+import type { Rol } from "../generated/prisma/client";
+import { LISTA, idOpcion, opcionResumen, opcionValida } from "../lib/listasMaestras";
 import { VERSION_POLITICA_DATOS } from "../lib/consentimiento";
 
 export const usuariosRouter = Router();
 
 const ROLES_VALIDOS: Rol[] = ["USUARIO", "ADMIN"];
-const TIPOS_DOCUMENTO: TipoDocumento[] = ["CC", "TI", "CE", "PPT", "RC", "OTRO"];
 const PASSWORD_MIN = 8;
 const ETIQUETA_ROL: Record<Rol, string> = { USUARIO: "Usuario", ADMIN: "Administrador" };
 
@@ -19,7 +19,8 @@ const datosPerfil = {
   email: true,
   rol: true,
   telefono: true,
-  tipoDocumento: true,
+  tipoDocumentoId: true,
+  tipoDocumento: opcionResumen,
   numeroDocumento: true,
   ciudad: true,
   creadoEn: true,
@@ -36,6 +37,9 @@ usuariosRouter.get("/", requireAuth, requireRole("ADMIN"), async (_req, res) => 
       nombre: true,
       email: true,
       telefono: true,
+      tipoDocumentoId: true,
+      tipoDocumento: opcionResumen,
+      numeroDocumento: true,
       ciudad: true,
       rol: true,
       creadoEn: true,
@@ -103,6 +107,111 @@ usuariosRouter.put("/:id/rol", requireAuth, requireRole("ADMIN"), async (req, re
   res.json(usuario);
 });
 
+usuariosRouter.put("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
+  const id = Number(req.params.id);
+  const { nombre, email, rol, telefono, numeroDocumento, ciudad, password } = req.body;
+  const tipoDocumentoId = idOpcion(req.body.tipoDocumentoId);
+
+  if (!nombre || !email || !rol) {
+    return res.status(400).json({ error: "Nombre, correo y rol son obligatorios" });
+  }
+  if (!ROLES_VALIDOS.includes(rol)) {
+    return res.status(400).json({ error: "Rol inválido" });
+  }
+  if (id === req.user!.id && rol !== "ADMIN") {
+    return res.status(400).json({ error: "No puedes quitarte el rol de administrador a ti mismo" });
+  }
+
+  const anterior = await prisma.usuario.findUnique({
+    where: { id },
+    select: { ...datosPerfil, passwordHash: true },
+  });
+  if (!anterior) return res.status(404).json({ error: "Usuario no encontrado" });
+  if (tipoDocumentoId !== null && !(await opcionValida(LISTA.TIPO_DOCUMENTO, tipoDocumentoId, anterior.tipoDocumentoId))) {
+    return res.status(400).json({ error: "Tipo de documento inválido" });
+  }
+
+  const emailLimpio = String(email).trim().toLowerCase();
+  if (emailLimpio !== anterior.email.toLowerCase()) {
+    const existe = await prisma.usuario.findUnique({ where: { email: emailLimpio } });
+    if (existe && existe.id !== id) {
+      return res.status(409).json({ error: "Ese correo ya está registrado por otro usuario" });
+    }
+  }
+
+  const cambioPassword = Boolean(password && String(password).trim().length > 0);
+  if (cambioPassword) {
+    if (!passwordValida(password)) {
+      return res.status(400).json({
+        error: `La contraseña debe tener al menos ${PASSWORD_MIN} caracteres, con letras y números`,
+      });
+    }
+  }
+
+  const dataToUpdate: any = {
+    nombre: String(nombre).trim(),
+    email: emailLimpio,
+    rol,
+    telefono: telefono ? String(telefono).trim() : null,
+    tipoDocumentoId,
+    numeroDocumento: numeroDocumento ? String(numeroDocumento).trim() : null,
+    ciudad: ciudad ? String(ciudad).trim() : null,
+  };
+
+  if (cambioPassword) {
+    dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
+  }
+
+  const actualizado = await prisma.usuario.update({
+    where: { id },
+    data: dataToUpdate,
+    select: {
+      id: true,
+      nombre: true,
+      email: true,
+      telefono: true,
+      tipoDocumentoId: true,
+      tipoDocumento: opcionResumen,
+      numeroDocumento: true,
+      ciudad: true,
+      rol: true,
+      creadoEn: true,
+      _count: { select: { donaciones: true, inscripciones: true, solicitudes: true } },
+    },
+  });
+
+  const contactoAnterior = {
+    Nombre: anterior.nombre,
+    Correo: anterior.email,
+    Rol: ETIQUETA_ROL[anterior.rol],
+    Celular: anterior.telefono,
+    "Tipo de doc.": anterior.tipoDocumento?.nombre,
+    "Nº de doc.": anterior.numeroDocumento,
+    Ciudad: anterior.ciudad,
+    ...(cambioPassword ? { Contraseña: "••••••••" } : {}),
+  };
+  const contactoNuevo = {
+    Nombre: actualizado.nombre,
+    Correo: actualizado.email,
+    Rol: ETIQUETA_ROL[actualizado.rol],
+    Celular: actualizado.telefono,
+    "Tipo de doc.": actualizado.tipoDocumento?.nombre,
+    "Nº de doc.": actualizado.numeroDocumento,
+    Ciudad: actualizado.ciudad,
+    ...(cambioPassword ? { Contraseña: "Nueva contraseña asignada (oculta)" } : {}),
+  };
+
+  await registrarCambio(req, {
+    modulo: "USUARIOS",
+    accion: "ACTUALIZAR_DATOS",
+    afectado: { tipo: "Usuario", nombre: `${actualizado.nombre} (${actualizado.email})` },
+    descripcion: `Actualizó los datos de ${actualizado.nombre} (${actualizado.email})`,
+    ...cambios(contactoAnterior, contactoNuevo),
+  });
+
+  res.json(actualizado);
+});
+
 usuariosRouter.delete("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const id = Number(req.params.id);
   if (id === req.user!.id) {
@@ -147,15 +256,6 @@ usuariosRouter.post("/registro", async (req, res) => {
     },
   });
 
-  await registrarCambio(req, {
-    modulo: "CUENTAS",
-    accion: "REGISTRO",
-    usuarioId: usuario.id,
-    afectado: { tipo: "Usuario", nombre: `${usuario.nombre} (${usuario.email})` },
-    descripcion: `Se registró en la plataforma con el correo ${usuario.email}`,
-    nuevo: { Nombre: usuario.nombre, Correo: usuario.email },
-  });
-
   const token = firmarToken({ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre });
   res.status(201).json({
     token,
@@ -168,27 +268,8 @@ usuariosRouter.post("/login", async (req, res) => {
   const usuario = await prisma.usuario.findUnique({ where: { email } });
   const ok = usuario ? await bcrypt.compare(String(password ?? ""), usuario.passwordHash) : false;
   if (!usuario || !ok) {
-    await registrarCambio(req, {
-      modulo: "CUENTAS",
-      accion: "INICIO_SESION",
-      exitoso: false,
-      usuarioId: usuario?.id ?? null,
-      afectado: usuario
-        ? { tipo: "Usuario", nombre: `${usuario.nombre} (${usuario.email})` }
-        : { tipo: "Correo no registrado", nombre: String(email ?? "").slice(0, 120) },
-      descripcion: usuario
-        ? "Intento de inicio de sesión con contraseña incorrecta"
-        : `Intento de inicio de sesión con un correo no registrado (${String(email ?? "").slice(0, 120)})`,
-    });
     return res.status(401).json({ error: "Credenciales inválidas" });
   }
-  await registrarCambio(req, {
-    modulo: "CUENTAS",
-    accion: "INICIO_SESION",
-    usuarioId: usuario.id,
-    afectado: { tipo: "Usuario", nombre: `${usuario.nombre} (${usuario.email})` },
-    descripcion: "Inició sesión",
-  });
 
   const token = firmarToken({ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre });
   res.json({
@@ -203,20 +284,21 @@ usuariosRouter.get("/yo", requireAuth, async (req, res) => {
 });
 
 usuariosRouter.put("/yo/contacto", requireAuth, async (req, res) => {
-  const { telefono, tipoDocumento, numeroDocumento, ciudad } = req.body;
+  const { telefono, numeroDocumento, ciudad } = req.body;
+  const tipoDocumentoId = idOpcion(req.body.tipoDocumentoId);
   const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   if (!/^[0-9+\s()-]{7,20}$/.test(texto(telefono))) {
     return res.status(400).json({ error: "Escribe un número de celular válido" });
   }
-  if (tipoDocumento && !TIPOS_DOCUMENTO.includes(tipoDocumento)) {
+  const antes = await prisma.usuario.findUnique({ where: { id: req.user!.id }, select: datosPerfil });
+  if (tipoDocumentoId !== null && !(await opcionValida(LISTA.TIPO_DOCUMENTO, tipoDocumentoId, antes?.tipoDocumentoId))) {
     return res.status(400).json({ error: "Tipo de documento inválido" });
   }
-  const antes = await prisma.usuario.findUnique({ where: { id: req.user!.id }, select: datosPerfil });
   const usuario = await prisma.usuario.update({
     where: { id: req.user!.id },
     data: {
       telefono: texto(telefono),
-      tipoDocumento: tipoDocumento || null,
+      tipoDocumentoId,
       numeroDocumento: texto(numeroDocumento) || null,
       ciudad: texto(ciudad) || null,
     },
@@ -224,7 +306,7 @@ usuariosRouter.put("/yo/contacto", requireAuth, async (req, res) => {
   });
   const contacto = (u: typeof usuario | null) => ({
     Celular: u?.telefono,
-    "Tipo de documento": u?.tipoDocumento,
+    "Tipo de documento": u?.tipoDocumento?.nombre,
     "Número de documento": u?.numeroDocumento,
     Ciudad: u?.ciudad,
   });
@@ -263,7 +345,7 @@ usuariosRouter.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) =
           estado: true,
           tipoApoyo: true,
           nombreCompleto: true,
-          tipoDocumento: true,
+          tipoDocumento: opcionResumen,
           numeroDocumento: true,
           telefono: true,
           direccion: true,
