@@ -15,6 +15,7 @@ import { actividadesRouter } from "./routes/actividades.routes";
 import { reportesRouter } from "./routes/reportes.routes";
 import { listasRouter } from "./routes/listas.routes";
 import { pagosRouter, sincronizarPagosPendientes } from "./routes/pagos.routes";
+import { prisma } from "./lib/prisma";
 
 const app = express();
 // En Render la API está detrás de un proxy: así el límite de intentos ve la IP real de cada usuario.
@@ -46,6 +47,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.get("/api", (_req, res) => res.json({ status: "ok", proyecto: "RedMinuto API" }));
+// Lo visita un ping cada 10 minutos: mantiene despiertas la API (Render) y la base de datos (Aiven).
+app.get("/api/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok", bd: "ok" });
+  } catch {
+    res.status(503).json({ status: "error", bd: "sin conexión" });
+  }
+});
 
 app.use("/api/usuarios", usuariosRouter);
 app.use("/api/programas", programasRouter);
