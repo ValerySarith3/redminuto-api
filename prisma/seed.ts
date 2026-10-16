@@ -1,10 +1,12 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { prisma } from "../src/lib/prisma";
 
 async function main() {
   const email = process.env.ADMIN_EMAIL ?? "admin@casaminutodedios.org";
-  const password = process.env.ADMIN_PASSWORD ?? "CambiarClave123";
+  // Sin contraseña fija en el código: se toma de ADMIN_PASSWORD o se genera una aleatoria.
+  const password = process.env.ADMIN_PASSWORD || randomBytes(12).toString("base64url");
 
   const existente = await prisma.usuario.findUnique({ where: { email } });
   if (existente) {

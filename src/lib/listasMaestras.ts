@@ -13,7 +13,7 @@ export const opcionResumen = { select: { id: true, codigo: true, nombre: true } 
 export function idOpcion(valor: unknown): number | null {
   if (valor === null || valor === undefined || valor === "") return null;
   const id = Number(valor);
-  return Number.isInteger(id) && id > 0 ? id : NaN;
+  return Number.isInteger(id) && id > 0 ? id : Number.NaN;
 }
 
 // La opción existe, pertenece a esa lista y está activa. Si es la que el registro ya tenía (`actual`),

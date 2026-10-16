@@ -30,7 +30,9 @@ const MONTO_MAX = 50_000_000;
 const MONEDA = "COP";
 
 export const pasarelaConfigurada = () => Boolean(payu.merchantId && payu.accountId && payu.apiKey);
-const md5 = (texto: string) => createHash("md5").update(texto).digest("hex");
+// Firma de PayU con SHA-256 (se le indica con algorithmSignature). MD5 es un algoritmo débil y no se usa.
+const ALGORITMO_FIRMA = "SHA256";
+const firmar = (texto: string) => createHash("sha256").update(texto).digest("hex");
 
 // Códigos de estado de PayU (transactionState / state_pol).
 const ESTADOS: Record<string, { donacion: EstadoDonacion; pago: EstadoPago; texto: string }> = {
@@ -161,7 +163,8 @@ pagosRouter.post("/payu/iniciar", requireAuth, async (req, res) => {
     tax: "0",
     taxReturnBase: "0",
     currency: MONEDA,
-    signature: md5(`${payu.apiKey}~${payu.merchantId}~${referencia}~${valor}~${MONEDA}`),
+    signature: firmar(`${payu.apiKey}~${payu.merchantId}~${referencia}~${valor}~${MONEDA}`),
+    algorithmSignature: ALGORITMO_FIRMA,
     test: payu.pruebas ? "1" : "0",
     buyerEmail: donante.email,
     buyerFullName: donante.nombre,
@@ -221,7 +224,7 @@ pagosRouter.get("/payu/respuesta", requireAuth, async (req, res) => {
   if (!referenceCode || !TX_VALUE || !currency || !transactionState) {
     return res.status(400).json({ error: "Respuesta de pago incompleta" });
   }
-  const esperada = md5(
+  const esperada = firmar(
     `${payu.apiKey}~${merchantId}~${referenceCode}~${valorParaFirma(TX_VALUE)}~${currency}~${transactionState}`,
   );
   if (merchantId !== payu.merchantId || !firmaValida(signature, esperada)) {
@@ -259,7 +262,7 @@ pagosRouter.post("/payu/confirmacion", async (req, res) => {
   const { merchant_id, reference_sale, value, currency, state_pol, sign } = b;
   if (!reference_sale || !value || !currency || !state_pol) return res.status(400).send("Datos incompletos");
 
-  const esperada = md5(`${payu.apiKey}~${merchant_id}~${reference_sale}~${valorParaFirma(value)}~${currency}~${state_pol}`);
+  const esperada = firmar(`${payu.apiKey}~${merchant_id}~${reference_sale}~${valorParaFirma(value)}~${currency}~${state_pol}`);
   if (merchant_id !== payu.merchantId || !firmaValida(sign, esperada)) return res.status(401).send("Firma inválida");
 
   try {

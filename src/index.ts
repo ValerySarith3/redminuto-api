@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -68,6 +68,17 @@ app.use("/api/actividades", actividadesRouter);
 app.use("/api/reportes", reportesRouter);
 app.use("/api/pagos", pagosRouter);
 app.use("/api/listas", listasRouter);
+
+// Rutas inexistentes y errores no controlados responden en JSON (con las cabeceras de helmet) y sin detalles internos.
+app.use((_req, res) => {
+  res.status(404).json({ error: "Recurso no encontrado" });
+});
+const manejarError: ErrorRequestHandler = (err, _req, res, _next) => {
+  console.error(err);
+  const status = typeof err?.status === "number" && err.status < 500 ? err.status : 500;
+  res.status(status).json({ error: status === 500 ? "Error interno del servidor" : "Solicitud inválida" });
+};
+app.use(manejarError);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
